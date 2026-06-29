@@ -56,8 +56,9 @@ source "azure-arm" "express_nginx_app" {
     ManagedBy   = "packer"
   }
 
-  location = "East US"
-  vm_size  = "Standard_B1s"
+  location           = "East US"
+  vm_size            = "Standard_B1s"
+  use_azure_cli_auth = true
 }
 
 # -------------------------------------------------------------------
@@ -132,4 +133,19 @@ build {
       "echo 'Image build complete'"
     ]
   }
+
+  # ── Step 6: Launch VMs from the freshly built images ─────────────
+  # post-processor "shell-local" {
+  #   only             = ["amazon-ebs.express_nginx_app"]
+  #   environment_vars = ["CLOUD=aws"]
+  #   script           = "${path.root}/scripts/deploy.ps1"
+  #   execute_command  = ["powershell", "-File", "{{.Script}}"]
+  # }
+
+  # post-processor "shell-local" {
+  #   only             = ["azure-arm.express_nginx_app"]
+  #   environment_vars = ["CLOUD=azure"]
+  #   script           = "${path.root}/scripts/deploy.ps1"
+  #   execute_command  = ["powershell", "-File", "{{.Script}}"]
+  # }
 }

@@ -1,5 +1,0 @@
-#cloud-config
-# Pass this as --user-data when launching EC2 from the Packer-built AMI
-# Docker images are already baked into the image — no pull needed
-runcmd:
-  - cd /opt/express-app && docker compose up -d
