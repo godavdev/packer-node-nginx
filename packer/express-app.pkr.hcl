@@ -48,7 +48,7 @@ source "azure-arm" "express_nginx_app" {
   }
 
   location           = "East US"
-  vm_size            = "Standard_D2als_v7"
+  vm_size            = "Standard_D2s_v3"
   use_azure_cli_auth = true
 }
 

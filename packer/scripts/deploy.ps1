@@ -65,11 +65,17 @@ elseif ($Cloud -eq "azure") {
     --resource-group packer-images `
     --name $vmName `
     --image $Artifact `
+    --size Standard_D2s_v3 `
     --admin-username azureuser `
     --custom-data "$ProjectRoot\deploy\cloud-init.yaml" `
-    --nsg-rule HTTP
+    --nsg-rule SSH
 
-  $publicIp = ($output | ConvertFrom-Json).publicIpAddress
+  $props = $output | ConvertFrom-Json
+  $publicIp = $props.publicIpAddress
+
+  # Open port 80
+  az vm open-port --resource-group packer-images --name $vmName --port 80 | Out-Null
+
   Write-Host "`n  Access your app at: http://$publicIp" -ForegroundColor Green
 }
 
