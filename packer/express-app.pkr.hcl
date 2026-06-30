@@ -21,7 +21,7 @@ source "amazon-ebs" "express_nginx_app" {
 
   source_ami_filter {
     filters = {
-      name                = "ubuntu/images/*ubuntu-26.04-*-amd64-server-*"
+      name                = "ubuntu/images/hvm-ssd-gp3/ubuntu-resolute-26.04-amd64-server-*"
       root-device-type    = "ebs"
       virtualization-type = "hvm"
     }
@@ -69,12 +69,6 @@ build {
     "source.amazon-ebs.express_nginx_app",
     "source.azure-arm.express_nginx_app"
   ]
-
-  # ── Step 0: Ensure Azure resource group exists ──────────────────
-  provisioner "shell-local" {
-    only   = ["azure-arm.express_nginx_app"]
-    inline = ["az group create --name packer-images --location ${var.azure_location} --output none"]
-  }
 
   # ── Step 1: Install Docker + Docker Compose ─────────────────────
   provisioner "shell" {
