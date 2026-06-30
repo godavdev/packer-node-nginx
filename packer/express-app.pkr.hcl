@@ -90,6 +90,11 @@ build {
   }
 
   provisioner "file" {
+    source      = "${path.root}/../package-lock.json"
+    destination = "/opt/express-app/package-lock.json"
+  }
+
+  provisioner "file" {
     source      = "${path.root}/../src"
     destination = "/opt/express-app/src"
   }
@@ -102,10 +107,6 @@ build {
   provisioner "file" {
     source      = "${path.root}/../nginx"
     destination = "/opt/express-app/nginx"
-  }
-
-  provisioner "shell" {
-    inline = ["cp /opt/express-app/package.json /opt/express-app/package-lock.json"]
   }
 
   # ── Step 4: Build Docker images ──────────────────────────────────
@@ -125,18 +126,5 @@ build {
     ]
   }
 
-  # ── Step 6: Launch VMs from the freshly built images ─────────────
-  # post-processor "shell-local" {
-  #   only             = ["amazon-ebs.express_nginx_app"]
-  #   environment_vars = ["CLOUD=aws"]
-  #   script           = "${path.root}/scripts/deploy.ps1"
-  #   execute_command  = ["powershell", "-File", "{{.Script}}"]
-  # }
-
-  # post-processor "shell-local" {
-  #   only             = ["azure-arm.express_nginx_app"]
-  #   environment_vars = ["CLOUD=azure"]
-  #   script           = "${path.root}/scripts/deploy.ps1"
-  #   execute_command  = ["powershell", "-File", "{{.Script}}"]
-  # }
+  # ── Step 6: (Deploy manually via packer/scripts/deploy.ps1) ─────
 }
