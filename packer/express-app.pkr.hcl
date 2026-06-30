@@ -17,19 +17,10 @@ packer {
 source "amazon-ebs" "express_nginx_app" {
   ami_name      = "${var.app_name}-${var.image_version}"
   instance_type = "t3.micro"
-  region        = "us-east-1"
+  region        = "us-east-2"
 
-  source_ami_filter {
-    filters = {
-      name                = "al2023-ami-2023.*-kernel-6.1-x86_64"
-      root-device-type    = "ebs"
-      virtualization-type = "hvm"
-    }
-    most_recent = true
-    owners      = ["amazon"]
-  }
-
-  ssh_username = "ec2-user"
+  source_ami   = "ami-0e5497a77ef21b5ac"
+  ssh_username = "ubuntu"
 
   tags = {
     Name        = "${var.app_name}-${var.image_version}"

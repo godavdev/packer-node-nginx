@@ -17,6 +17,7 @@ if ($Cloud -eq "aws") {
   aws ec2 run-instances `
     --image-id $amiId `
     --instance-type t3.micro `
+    --region us-east-2 `
     --user-data "file://$ProjectRoot\deploy\cloud-init.yaml" `
     --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=express-app-$Build}]"
 }
