@@ -112,15 +112,15 @@ build {
   provisioner "shell" {
     inline = [
       "cd /opt/express-app",
-      "docker compose build"
+      "sudo docker compose build"
     ]
   }
 
   # ── Step 5: Verify ───────────────────────────────────────────────
   provisioner "shell" {
     inline = [
-      "docker compose --version",
-      "docker images",
+      "sudo docker compose --version",
+      "sudo docker images",
       "echo 'Image build complete'"
     ]
   }
