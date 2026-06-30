@@ -61,6 +61,12 @@ build {
     "source.azure-arm.express_nginx_app"
   ]
 
+  # ── Step 0: Ensure Azure resource group exists ──────────────────
+  provisioner "shell-local" {
+    only   = ["azure-arm.express_nginx_app"]
+    inline = ["az group create --name packer-images --location eastus --output none"]
+  }
+
   # ── Step 1: Install Docker + Docker Compose ─────────────────────
   provisioner "shell" {
     script = "${path.root}/scripts/provision.sh"
