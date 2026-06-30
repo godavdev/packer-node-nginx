@@ -3,6 +3,8 @@ services:
   app:
     build: .
     container_name: express-app
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
     expose:
       - "3000"
     restart: unless-stopped

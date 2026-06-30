@@ -16,15 +16,24 @@ packer {
 # -------------------------------------------------------------------
 source "amazon-ebs" "express_nginx_app" {
   ami_name      = "${var.app_name}-${var.image_version}"
-  instance_type = "t3.micro"
-  region        = "us-east-2"
+  instance_type = var.aws_instance_type
+  region        = var.aws_region
 
-  source_ami   = "ami-0e5497a77ef21b5ac"
+  source_ami_filter {
+    filters = {
+      name                = "ubuntu/images/*ubuntu-26.04-*-amd64-server-*"
+      root-device-type    = "ebs"
+      virtualization-type = "hvm"
+    }
+    most_recent = true
+    owners      = ["099720109477"]
+  }
+
   ssh_username = "ubuntu"
 
   tags = {
     Name        = "${var.app_name}-${var.image_version}"
-    Environment = "production"
+    Environment = var.node_env
     ManagedBy   = "packer"
   }
 }
@@ -43,12 +52,12 @@ source "azure-arm" "express_nginx_app" {
 
   azure_tags = {
     Name        = "${var.app_name}-${var.image_version}"
-    Environment = "production"
+    Environment = var.node_env
     ManagedBy   = "packer"
   }
 
-  location           = "East US"
-  vm_size            = "Standard_D2s_v3"
+  location           = var.azure_location
+  vm_size            = var.azure_vm_size
   use_azure_cli_auth = true
 }
 
@@ -64,7 +73,7 @@ build {
   # ── Step 0: Ensure Azure resource group exists ──────────────────
   provisioner "shell-local" {
     only   = ["azure-arm.express_nginx_app"]
-    inline = ["az group create --name packer-images --location eastus --output none"]
+    inline = ["az group create --name packer-images --location ${var.azure_location} --output none"]
   }
 
   # ── Step 1: Install Docker + Docker Compose ─────────────────────
@@ -88,6 +97,11 @@ build {
   provisioner "file" {
     source      = "${path.root}/../Dockerfile"
     destination = "/opt/express-app/Dockerfile"
+  }
+
+  provisioner "file" {
+    source      = "${path.root}/../.dockerignore"
+    destination = "/opt/express-app/.dockerignore"
   }
 
   provisioner "file" {
