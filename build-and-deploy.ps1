@@ -1,34 +1,44 @@
 param(
-  [string]$Cloud,
-  [string]$Artifact,
-  [string]$Build = "manual"
+  [ValidateSet("aws", "azure", "both")]
+  [string]$Cloud = "both",
+  [string]$ImageVersion = "1.0.0"
 )
 
 $ErrorActionPreference = "Stop"
+$ProjectRoot = $PSScriptRoot
 
-if (-not $Cloud)   { $Cloud    = $env:CLOUD }
-if (-not $Artifact) { $Artifact = $env:PACKER_ARTIFACT_ID }
-if (-not $Build)   { $Build    = $env:PACKER_BUILD_NAME }
+function Build-And-Deploy-Aws {
+  param([string]$Version)
 
-Write-Host "`n═══════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "  DEPLOY: $Cloud" -ForegroundColor Cyan
-Write-Host "═══════════════════════════════════════`n" -ForegroundColor Cyan
-
-if ($Cloud -eq "aws") {
   $region = "us-east-2"
-  $amiId = ($Artifact -split ':')[1]
-  Write-Host "AMI ID: $amiId" -ForegroundColor Yellow
+  $buildTag = "express-nginx-v$Version"
 
-  # Cleanup: terminate previous instances with same tag
+  Write-Host "`n═══════════════════════════════════════" -ForegroundColor Cyan
+  Write-Host "  BUILD & DEPLOY: AWS ($Version)" -ForegroundColor Cyan
+  Write-Host "═══════════════════════════════════════`n" -ForegroundColor Cyan
+
+  # Build
+  $output = & packer build -only="amazon-ebs.express_nginx_app" -var "image_version=$Version" (Join-Path $ProjectRoot "packer") 2>&1
+  $output | ForEach-Object { Write-Host $_ }
+
+  # Parse artifact ID
+  $amiLine = $output | Select-String "${region}: ami-" | ForEach-Object { $_.Line }
+  if (-not $amiLine) {
+    throw "Could not find AMI ID in packer output"
+  }
+  $amiId = ($amiLine -split "${region}: ")[-1].Trim()
+  Write-Host "`nAMI ID: $amiId" -ForegroundColor Yellow
+
+  # Cleanup previous instances with same tag
   $oldInstances = aws ec2 describe-instances --region $region `
-    --filters "Name=tag:Name,Values=express-app-$Build" "Name=instance-state-name,Values=running" `
+    --filters "Name=tag:Name,Values=express-app-$buildTag" "Name=instance-state-name,Values=running" `
     --query "Reservations[].Instances[].InstanceId" --output text 2>$null
   if ($oldInstances) {
     Write-Host "Terminating old instances: $oldInstances" -ForegroundColor Yellow
     aws ec2 terminate-instances --region $region --instance-ids $oldInstances | Out-Null
   }
 
-  # Ensure security group for HTTP only (no SSH)
+  # Ensure security group for HTTP only
   $sgName = "express-app-sg"
   $sgId = aws ec2 describe-security-groups --region $region --group-names $sgName --query "SecurityGroups[0].GroupId" --output text 2>$null
   if ($LASTEXITCODE -ne 0) {
@@ -48,7 +58,7 @@ if ($Cloud -eq "aws") {
     --instance-type t3.micro `
     --security-group-ids $sgId `
     --associate-public-ip-address `
-    --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=express-app-$Build}]" `
+    --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=express-app-$buildTag}]" `
     --query "Instances[0].InstanceId" `
     --output text
 
@@ -75,14 +85,41 @@ if ($Cloud -eq "aws") {
   } else {
     Write-Host "  App might still be starting (timeout)" -ForegroundColor Yellow
   }
+
+  Write-Host "`n  Deploy complete for AWS ($Version)" -ForegroundColor Green
 }
 
-elseif ($Cloud -eq "azure") {
+function Build-And-Deploy-Azure {
+  param([string]$Version)
+
+  $buildTag = "express-nginx-v$Version"
+  $location = "East US"
+
+  Write-Host "`n═══════════════════════════════════════" -ForegroundColor Cyan
+  Write-Host "  BUILD & DEPLOY: AZURE ($Version)" -ForegroundColor Cyan
+  Write-Host "═══════════════════════════════════════`n" -ForegroundColor Cyan
+
+  # Pre-build: ensure resource group exists
+  az group create --name packer-images --location $location --output none 2>$null
+  Write-Host "Resource group 'packer-images' ready" -ForegroundColor Green
+
+  # Build
+  $output = & packer build -only="azure-arm.express_nginx_app" -var "image_version=$Version" (Join-Path $ProjectRoot "packer") 2>&1
+  $output | ForEach-Object { Write-Host $_ }
+
+  # Parse artifact ID
+  $imageIdLine = $output | Select-String "ManagedImageId:" | ForEach-Object { $_.Line }
+  if (-not $imageIdLine) {
+    throw "Could not find ManagedImageId in packer output"
+  }
+  $imageId = ($imageIdLine -split "ManagedImageId: ")[-1].Trim()
+  Write-Host "`nImage ID: $imageId" -ForegroundColor Yellow
+
+  # Deploy
   $vmName = "express-vm-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-  Write-Host "Image: $Artifact" -ForegroundColor Yellow
   Write-Host "VM: $vmName" -ForegroundColor Yellow
 
-  # Cleanup: delete previous VMs with the same tag or older than 1h
+  # Cleanup previous VMs
   $oldVms = az vm list --resource-group packer-images --query "[?contains(name, 'express-vm')].name" -o tsv 2>$null
   if ($oldVms) {
     foreach ($oldVm in $oldVms) {
@@ -94,7 +131,7 @@ elseif ($Cloud -eq "azure") {
   $output = az vm create `
     --resource-group packer-images `
     --name $vmName `
-    --image $Artifact `
+    --image $imageId `
     --size Standard_D2s_v3 `
     --admin-username azureuser `
     --nsg-rule SSH
@@ -129,11 +166,20 @@ elseif ($Cloud -eq "azure") {
   } else {
     Write-Host "  App might still be starting (timeout)" -ForegroundColor Yellow
   }
+
+  Write-Host "`n  Deploy complete for AZURE ($Version)" -ForegroundColor Green
 }
 
-else {
-  Write-Host "Unknown cloud: $Cloud" -ForegroundColor Red
-  exit 1
+# ── Main ────────────────────────────────────────────────────────────
+
+if ($Cloud -eq "aws" -or $Cloud -eq "both") {
+  Build-And-Deploy-Aws -Version $ImageVersion
 }
 
-Write-Host "`n  Deploy complete for $Cloud" -ForegroundColor Green
+if ($Cloud -eq "azure" -or $Cloud -eq "both") {
+  Build-And-Deploy-Azure -Version $ImageVersion
+}
+
+Write-Host "`n═══════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "  ALL DONE" -ForegroundColor Cyan
+Write-Host "═══════════════════════════════════════" -ForegroundColor Cyan
