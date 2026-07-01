@@ -9,7 +9,6 @@ $ErrorActionPreference = "Stop"
 if (-not $Cloud)   { $Cloud    = $env:CLOUD }
 if (-not $Artifact) { $Artifact = $env:PACKER_ARTIFACT_ID }
 if (-not $Build)   { $Build    = $env:PACKER_BUILD_NAME }
-$ProjectRoot = Split-Path -Path $PSScriptRoot -Parent | Split-Path -Parent
 
 Write-Host "`n═══════════════════════════════════════" -ForegroundColor Cyan
 Write-Host "  DEPLOY: $Cloud" -ForegroundColor Cyan
@@ -49,7 +48,6 @@ if ($Cloud -eq "aws") {
     --instance-type t3.micro `
     --security-group-ids $sgId `
     --associate-public-ip-address `
-    --user-data "file://$ProjectRoot\deploy\cloud-init.yaml" `
     --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=express-app-$Build}]" `
     --query "Instances[0].InstanceId" `
     --output text
@@ -99,7 +97,6 @@ elseif ($Cloud -eq "azure") {
     --image $Artifact `
     --size Standard_D2s_v3 `
     --admin-username azureuser `
-    --custom-data "$ProjectRoot\deploy\cloud-init.yaml" `
     --nsg-rule SSH
 
   $props = $output | ConvertFrom-Json

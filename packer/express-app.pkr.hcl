@@ -140,5 +140,19 @@ build {
     ]
   }
 
-  # ── Step 6: (Deploy manually via packer/scripts/deploy.ps1) ─────
+  # ── Step 6: Systemd service to start app on boot ─────────────────
+  provisioner "file" {
+    source      = "${path.root}/scripts/express-app.service"
+    destination = "/tmp/express-app.service"
+  }
+
+  provisioner "shell" {
+    inline = [
+      "sudo mv /tmp/express-app.service /etc/systemd/system/express-app.service",
+      "sudo systemctl daemon-reload",
+      "sudo systemctl enable express-app.service"
+    ]
+  }
+
+  # ── Step 7: (Deploy manually via packer/scripts/deploy.ps1) ─────
 }
