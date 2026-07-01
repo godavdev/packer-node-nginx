@@ -104,8 +104,14 @@ elseif ($Cloud -eq "azure") {
 
   # Replace NSG to allow HTTP instead of SSH
   $nsgName = "${vmName}NSG"
-  az network nsg rule create --resource-group packer-images --nsg-name $nsgName --name HTTP --priority 1000 --protocol Tcp --destination-port-ranges 80 --access Allow 2>$null | Out-Null
-  az network nsg rule delete --resource-group packer-images --nsg-name $nsgName --name default-allow-ssh 2>$null | Out-Null
+  az network nsg rule create --resource-group packer-images --nsg-name $nsgName --name HTTP --priority 1010 --protocol Tcp --destination-port-ranges 80 --access Allow
+
+  # Find and remove SSH rule by port (name varies by Azure CLI version)
+  $sshRuleName = az network nsg rule list --resource-group packer-images --nsg-name $nsgName --query "[?destinationPortRange=='22'].name" -o tsv
+  if ($sshRuleName) {
+    az network nsg rule delete --resource-group packer-images --nsg-name $nsgName --name $sshRuleName
+    Write-Host "  Removed SSH rule: $sshRuleName" -ForegroundColor Yellow
+  }
 
   Write-Host "`n  Access your app at: http://$publicIp" -ForegroundColor Green
 
