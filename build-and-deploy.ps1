@@ -6,6 +6,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 $ProjectRoot = $PSScriptRoot
+$LogDir = Join-Path $ProjectRoot "logs"
+$null = New-Item -ItemType Directory -Path $LogDir -Force
 
 function Build-And-Deploy-Aws {
   param([string]$Version)
@@ -18,8 +20,11 @@ function Build-And-Deploy-Aws {
   Write-Host "═══════════════════════════════════════`n" -ForegroundColor Cyan
 
   # Build
+  $logFile = Join-Path $LogDir "packer-aws-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
   $output = & packer build -only="amazon-ebs.express_nginx_app" -var "image_version=$Version" (Join-Path $ProjectRoot "packer") 2>&1
   $output | ForEach-Object { Write-Host $_ }
+  $output | Out-File -FilePath $logFile -Encoding utf8
+  Write-Host "  Packer log saved to: $logFile" -ForegroundColor Yellow
 
   # Parse artifact ID
   $amiLine = $output | Select-String "${region}: ami-" | ForEach-Object { $_.Line }
@@ -104,8 +109,11 @@ function Build-And-Deploy-Azure {
   Write-Host "Resource group 'packer-images' ready" -ForegroundColor Green
 
   # Build
+  $logFile = Join-Path $LogDir "packer-azure-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
   $output = & packer build -only="azure-arm.express_nginx_app" -var "image_version=$Version" (Join-Path $ProjectRoot "packer") 2>&1
   $output | ForEach-Object { Write-Host $_ }
+  $output | Out-File -FilePath $logFile -Encoding utf8
+  Write-Host "  Packer log saved to: $logFile" -ForegroundColor Yellow
 
   # Parse artifact ID
   $imageIdLine = $output | Select-String "ManagedImageId:" | ForEach-Object { $_.Line }
