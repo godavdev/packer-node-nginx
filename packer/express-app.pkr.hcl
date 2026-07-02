@@ -154,5 +154,4 @@ build {
     ]
   }
 
-  # ── Step 7: (Deploy manually via packer/scripts/deploy.ps1) ─────
 }
